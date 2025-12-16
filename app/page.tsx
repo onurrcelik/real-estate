@@ -6,6 +6,7 @@ import { StyleSelector } from '@/components/style-selector';
 import { ComparisonViewer } from '@/components/comparison-viewer';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw, Download } from 'lucide-react';
+import { cn } from '@/lib/utils';
 // Removed unused toast import
 
 // "I want you to use shadcn/ui". Shadcn toast is great but needs setup.
@@ -13,7 +14,8 @@ import { Loader2, RefreshCw, Download } from 'lucide-react';
 
 export default function Home() {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [selectedStyle, setSelectedStyle] = useState<string>('Modern');
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
@@ -38,7 +40,8 @@ export default function Home() {
         };
         img.src = result;
 
-        setGeneratedImage(null); // Reset generation
+        setGeneratedImages([]); // Reset generation
+        setSelectedImageIndex(0);
         setError(null);
       }
     };
@@ -68,10 +71,11 @@ export default function Home() {
         throw new Error(data.details || data.error || 'Failed to generate image');
       }
 
-      if (data.generatedImage) {
-        setGeneratedImage(data.generatedImage);
+      if (data.generatedImages && data.generatedImages.length > 0) {
+        setGeneratedImages(data.generatedImages);
+        setSelectedImageIndex(0);
       } else {
-        throw new Error('No image returned from API');
+        throw new Error('No images returned from API');
       }
 
     } catch (err) {
@@ -84,16 +88,17 @@ export default function Home() {
 
   const handleReset = () => {
     setOriginalImage(null);
-    setGeneratedImage(null);
+    setGeneratedImages([]);
+    setSelectedImageIndex(0);
     setImageSize(null);
     setError(null);
   };
 
   const handleDownload = async () => {
-    if (!generatedImage) return;
+    if (generatedImages.length === 0) return;
 
     try {
-      const response = await fetch(generatedImage);
+      const response = await fetch(generatedImages[selectedImageIndex]);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -154,7 +159,7 @@ export default function Home() {
                   <div className="flex flex-col gap-3">
                     <Button
                       onClick={handleGenerate}
-                      disabled={isGenerating || !!generatedImage}
+                      disabled={isGenerating || generatedImages.length > 0}
                       size="lg"
                       className="w-full text-lg shadow-lg shadow-primary/20"
                     >
@@ -163,8 +168,8 @@ export default function Home() {
                           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                           Generating...
                         </>
-                      ) : generatedImage ? (
-                        "Regenerate" // Actually maybe we want to allow regen with diff style?
+                      ) : generatedImages.length > 0 ? (
+                        "Regenerate"
                       ) : (
                         "Generate Design"
                       )}
@@ -172,7 +177,7 @@ export default function Home() {
 
 
 
-                    {generatedImage && (
+                    {generatedImages.length > 0 && (
                       <Button variant="outline" onClick={handleDownload} className="w-full">
                         <Download className="mr-2 h-4 w-4" />
                         Download Photo
@@ -193,44 +198,67 @@ export default function Home() {
                 </div>
 
                 {/* Main Viewer area */}
-                <div className="bg-card border rounded-xl overflow-hidden shadow-sm min-h-[500px] flex items-center justify-center relative">
-                  {!generatedImage ? (
-                    // Show original only
-                    <div className="relative w-full h-full min-h-[500px] flex items-center justify-center bg-muted/20">
-                      <img
-                        src={originalImage}
-                        alt="Original"
-                        className="max-w-full max-h-[600px] h-auto w-auto object-contain shadow-sm"
-                      />
-                      {!isGenerating && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/5 backdrop-blur-[1px]">
-                          <div className="bg-background/90 px-4 py-2 rounded-full shadow-lg text-sm font-medium">
-                            Original Preview
+                <div className="flex flex-col gap-4">
+                  <div className="bg-card border rounded-xl overflow-hidden shadow-sm min-h-[500px] flex items-center justify-center relative">
+                    {generatedImages.length === 0 ? (
+                      // Show original only
+                      <div className="relative w-full h-full min-h-[500px] flex items-center justify-center bg-muted/20">
+                        <img
+                          src={originalImage}
+                          alt="Original"
+                          className="max-w-full max-h-[600px] h-auto w-auto object-contain shadow-sm"
+                        />
+                        {!isGenerating && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/5 backdrop-blur-[1px]">
+                            <div className="bg-background/90 px-4 py-2 rounded-full shadow-lg text-sm font-medium">
+                              Original Preview
+                            </div>
                           </div>
+                        )}
+                        {isGenerating && (
+                          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex flex-col items-center justify-center z-10">
+                            <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+                            <p className="font-medium text-lg animate-pulse">Designing your room...</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      // Show Comparison
+                      <ComparisonViewer
+                        beforeImage={originalImage}
+                        afterImage={generatedImages[selectedImageIndex]}
+                      />
+                    )}
+                  </div>
+
+                  {/* Thumbnails */}
+                  {generatedImages.length > 1 && (
+                    <div className="grid grid-cols-4 gap-2">
+                      {generatedImages.map((img, i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            "cursor-pointer rounded-lg overflow-hidden border-2 transition-all h-24 relative",
+                            selectedImageIndex === i ? "border-primary ring-2 ring-primary/20" : "border-transparent opacity-70 hover:opacity-100"
+                          )}
+                          onClick={() => setSelectedImageIndex(i)}
+                        >
+                          <img
+                            src={img}
+                            alt={`Variation ${i + 1}`}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                      )}
-                      {isGenerating && (
-                        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex flex-col items-center justify-center z-10">
-                          <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-                          <p className="font-medium text-lg animate-pulse">Designing your room...</p>
-                        </div>
-                      )}
+                      ))}
                     </div>
-                  ) : (
-                    // Show Comparison
-                    <ComparisonViewer
-                      beforeImage={originalImage}
-                      afterImage={generatedImage}
-                      className="w-full h-full"
-                    />
                   )}
                 </div>
-              </div>
 
+              </div>
             </div>
           )}
-        </div>
 
+        </div>
       </div>
     </main >
   );

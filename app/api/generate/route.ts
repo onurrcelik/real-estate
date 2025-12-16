@@ -1,5 +1,6 @@
 import * as fal from "@fal-ai/serverless-client";
 import { NextRequest, NextResponse } from "next/server";
+import { stylePrompts, negativePrompt } from "./prompt-utils";
 
 export async function POST(req: NextRequest) {
     // Ensure fal library finds the key if user used NEXT_PUBLIC_ prefix
@@ -8,7 +9,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { image, style, imageSize } = await req.json();
+        const { image, style, imageSize, roomType } = await req.json();
 
         if (!image || !style) {
             return NextResponse.json(
@@ -24,9 +25,12 @@ export async function POST(req: NextRequest) {
 
         // We will use the 'fal.subscribe' method which handles the queueing.
 
-        const prompt = `Virtual staging of a room in ${style} style. 
+        const roomLabel = roomType ? roomType.replace(/_/g, ' ') : 'room';
+        const styleDescription = stylePrompts[style] || style;
+        const prompt = `Virtual staging of a ${roomLabel} in ${style} style. ${styleDescription}
     High quality, photorealistic, interior design, 8k resolution.
-    Keep the room structure, replace furniture and decor to match ${style}.`;
+    Keep the room structure, replace furniture and decor (including wall art) to match ${style}.
+    IMPORTANT: If a media console or TV stand is visible, place a large modern flat-screen TV on it. Replace any painting or artwork above the unit with the TV.`;
 
         console.log(`Generating with dimensions: ${imageSize ? `${imageSize.width}x${imageSize.height}` : 'default'}`);
 
@@ -37,6 +41,8 @@ export async function POST(req: NextRequest) {
                 image_urls: [image], // Nano Banana accepts a list of URLs
                 output_format: "png",
                 image_size: imageSize || "square_hd",
+                negative_prompt: negativePrompt,
+                num_images: 4,
                 // sync_mode: false, // Optional
             },
             logs: true,
@@ -50,7 +56,9 @@ export async function POST(req: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const data = result as any; // Temporary cast
         if (data.images && data.images.length > 0) {
-            return NextResponse.json({ generatedImage: data.images[0].url });
+            return NextResponse.json({
+                generatedImages: data.images.map((img: any) => img.url)
+            });
         } else {
             throw new Error("No images generated");
         }
