@@ -5,7 +5,7 @@ import { UploadZone } from '@/components/upload-zone';
 import { StyleSelector } from '@/components/style-selector';
 import { ComparisonViewer } from '@/components/comparison-viewer';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, Download } from 'lucide-react';
 // Removed unused toast import
 
 // "I want you to use shadcn/ui". Shadcn toast is great but needs setup.
@@ -16,7 +16,7 @@ export default function Home() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string>('Modern');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [imageAspectRatio, setImageAspectRatio] = useState<string>("square_hd");
+  const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleImageSelect = (file: File) => {
@@ -30,15 +30,11 @@ export default function Home() {
         // Determine aspect ratio
         const img = new Image();
         img.onload = () => {
-          const ratio = img.width / img.height;
-          let ratioString = "square_hd";
-          if (ratio > 1.2) {
-            ratioString = "landscape_16_9";
-          } else if (ratio < 0.8) {
-            ratioString = "portrait_9_16";
-          }
-          console.log(`Image dimensions: ${img.width}x${img.height}, Ratio: ${ratio}, Setting: ${ratioString}`);
-          setImageAspectRatio(ratioString);
+          // Round dimensions to nearest 16px for optimal generation
+          const width = Math.round(img.width / 16) * 16;
+          const height = Math.round(img.height / 16) * 16;
+          console.log(`Image dimensions: ${img.width}x${img.height}, Rounded: ${width}x${height}`);
+          setImageSize({ width, height });
         };
         img.src = result;
 
@@ -62,7 +58,7 @@ export default function Home() {
         body: JSON.stringify({
           image: originalImage,
           style: selectedStyle,
-          aspectRatio: imageAspectRatio,
+          imageSize: imageSize,
         }),
       });
 
@@ -89,7 +85,27 @@ export default function Home() {
   const handleReset = () => {
     setOriginalImage(null);
     setGeneratedImage(null);
+    setImageSize(null);
     setError(null);
+  };
+
+  const handleDownload = async () => {
+    if (!generatedImage) return;
+
+    try {
+      const response = await fetch(generatedImage);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `staged-room-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Failed to download image', e);
+    }
   };
 
   return (
@@ -154,9 +170,12 @@ export default function Home() {
                       )}
                     </Button>
 
+
+
                     {generatedImage && (
-                      <Button variant="outline" onClick={() => setGeneratedImage(null)} className="w-full">
-                        Try Another Style
+                      <Button variant="outline" onClick={handleDownload} className="w-full">
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Photo
                       </Button>
                     )}
 
@@ -213,6 +232,6 @@ export default function Home() {
         </div>
 
       </div>
-    </main>
+    </main >
   );
 }

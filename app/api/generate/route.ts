@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { image, style, aspectRatio } = await req.json();
+        const { image, style, imageSize } = await req.json();
 
         if (!image || !style) {
             return NextResponse.json(
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     High quality, photorealistic, interior design, 8k resolution.
     Keep the room structure, replace furniture and decor to match ${style}.`;
 
-        console.log(`Generating with aspect ratio: ${aspectRatio || 'default'}`);
+        console.log(`Generating with dimensions: ${imageSize ? `${imageSize.width}x${imageSize.height}` : 'default'}`);
 
         // Using Nano Banana Pro (Gemini 3) for image editing
         const result = await fal.subscribe("fal-ai/nano-banana-pro/edit", {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
                 prompt: prompt,
                 image_urls: [image], // Nano Banana accepts a list of URLs
                 output_format: "png",
-                image_size: aspectRatio || "square_hd", // Pass calculated aspect ratio
+                image_size: imageSize || "square_hd",
                 // sync_mode: false, // Optional
             },
             logs: true,
