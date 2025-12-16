@@ -17,7 +17,7 @@ export function ComparisonViewer({ beforeImage, afterImage, className }: Compari
             <ReactCompareSlider
                 itemOne={<ReactCompareSliderImage src={beforeImage} alt="Original Room" />}
                 itemTwo={<ReactCompareSliderImage src={afterImage} alt="Restyled Room" />}
-                className="h-[500px] w-full object-cover"
+                className="h-[500px] w-full object-contain"
                 style={{ height: '100%', minHeight: '400px' }}
             />
             <div className="absolute top-4 left-4 z-10">

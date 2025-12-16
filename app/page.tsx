@@ -16,6 +16,7 @@ export default function Home() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<string>('Modern');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [imageAspectRatio, setImageAspectRatio] = useState<string>("square_hd");
   const [error, setError] = useState<string | null>(null);
 
   const handleImageSelect = (file: File) => {
@@ -23,7 +24,24 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result) {
-        setOriginalImage(e.target.result as string);
+        const result = e.target.result as string;
+        setOriginalImage(result);
+
+        // Determine aspect ratio
+        const img = new Image();
+        img.onload = () => {
+          const ratio = img.width / img.height;
+          let ratioString = "square_hd";
+          if (ratio > 1.2) {
+            ratioString = "landscape_16_9";
+          } else if (ratio < 0.8) {
+            ratioString = "portrait_9_16";
+          }
+          console.log(`Image dimensions: ${img.width}x${img.height}, Ratio: ${ratio}, Setting: ${ratioString}`);
+          setImageAspectRatio(ratioString);
+        };
+        img.src = result;
+
         setGeneratedImage(null); // Reset generation
         setError(null);
       }
@@ -44,6 +62,7 @@ export default function Home() {
         body: JSON.stringify({
           image: originalImage,
           style: selectedStyle,
+          aspectRatio: imageAspectRatio,
         }),
       });
 
@@ -162,7 +181,7 @@ export default function Home() {
                       <img
                         src={originalImage}
                         alt="Original"
-                        className="max-h-[600px] w-full object-contain"
+                        className="max-w-full max-h-[600px] h-auto w-auto object-contain shadow-sm"
                       />
                       {!isGenerating && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/5 backdrop-blur-[1px]">
