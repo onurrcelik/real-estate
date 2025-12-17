@@ -1,6 +1,8 @@
 import * as fal from "@fal-ai/serverless-client";
 import { NextRequest, NextResponse } from "next/server";
 import { stylePrompts, negativePrompt } from "./prompt-utils";
+import { createClient } from "@supabase/supabase-js";
+import { v4 } from "uuid";
 
 export async function POST(req: NextRequest) {
     // Ensure fal library finds the key if user used NEXT_PUBLIC_ prefix
@@ -57,6 +59,74 @@ export async function POST(req: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const data = result as any; // Temporary cast
         if (data.images && data.images.length > 0) {
+            // --- Supabase Integration ---
+            try {
+                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+                if (supabaseUrl && supabaseKey) {
+                    const supabase = createClient(supabaseUrl, supabaseKey);
+
+                    // 1. Upload Original Image ONCE
+                    const uuidOriginal = v4();
+                    const base64Data = image.split(',')[1];
+                    const contentType = image.substring(image.indexOf(':') + 1, image.indexOf(';')) || 'image/png';
+                    const fileExt = contentType.split('/')[1] || 'png';
+                    const originalPath = `${uuidOriginal}_original.${fileExt}`;
+
+                    const { error: uploadError1 } = await supabase.storage
+                        .from('real-estate-generations')
+                        .upload(originalPath, Buffer.from(base64Data, 'base64'), {
+                            contentType: contentType,
+                            upsert: false
+                        });
+
+                    if (uploadError1) console.error("Upload Original Error:", uploadError1);
+
+                    const { data: publicUrlData1 } = supabase.storage.from('real-estate-generations').getPublicUrl(originalPath);
+                    const finalOriginalUrl = publicUrlData1.publicUrl;
+
+                    // 2. Loop through ALL generated images and save them
+                    await Promise.all(data.images.map(async (img: any, index: number) => {
+                        const generatedImageUrl = img.url;
+                        const uuidGen = v4();
+
+                        // Upload Generated Image
+                        const genRes = await fetch(generatedImageUrl);
+                        const genBlob = await genRes.arrayBuffer();
+                        const genPath = `${uuidGen}_generated_${index}.jpeg`;
+
+                        const { error: uploadError2 } = await supabase.storage
+                            .from('real-estate-generations')
+                            .upload(genPath, genBlob, {
+                                contentType: 'image/jpeg',
+                                upsert: false
+                            });
+
+                        if (uploadError2) console.error(`Upload Generated Error (${index}):`, uploadError2);
+
+                        const { data: publicUrlData2 } = supabase.storage.from('real-estate-generations').getPublicUrl(genPath);
+                        const finalGeneratedUrl = publicUrlData2.publicUrl;
+
+                        // Insert into Database
+                        const { error: dbError } = await supabase
+                            .from('real-estate-generations')
+                            .insert({
+                                id: uuidGen,
+                                original_image: finalOriginalUrl,
+                                generated_image: finalGeneratedUrl,
+                                style: style,
+                                prompt: prompt
+                            });
+
+                        if (dbError) console.error(`Database Insert Error (${index}):`, dbError);
+                    }));
+                }
+            } catch (err) {
+                console.error("Supabase storage error (non-fatal):", err);
+            }
+            // --- End Supabase Integration ---
+
             return NextResponse.json({
                 generatedImages: data.images.map((img: any) => img.url)
             });
