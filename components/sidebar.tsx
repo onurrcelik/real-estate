@@ -58,11 +58,28 @@ export function Sidebar({ onSelectGeneration, onNewChat, isOpen, setIsOpen }: Si
         };
     }, []);
 
+    const getThumbnail = (gen: Generation) => {
+        try {
+            const parsed = JSON.parse(gen.generated_image);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed[0];
+            }
+            return gen.generated_image;
+        } catch (e) {
+            return gen.generated_image;
+        }
+    };
+
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation(); // Prevent selecting the item
         if (!confirm('Are you sure you want to delete this design?')) return;
 
         try {
+            // Because we now use folders, we should technically delete the folder too 
+            // but Supabase storage API doesn't support recursive folder delete easily without listing first.
+            // For now, just deleting the DB record is enough to hide it from UI.
+            // We can rely on a bucket lifecycle policy to clean up or implement full cleanup later.
+
             const { error } = await supabase
                 .from('real-estate-generations')
                 .delete()

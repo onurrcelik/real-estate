@@ -67,12 +67,14 @@ export async function POST(req: NextRequest) {
                 if (supabaseUrl && supabaseKey) {
                     const supabase = createClient(supabaseUrl, supabaseKey);
 
-                    // 1. Upload Original Image ONCE
-                    const uuidOriginal = v4();
+                    // Use a single ID for the entire generation batch (folder name)
+                    const generationId = v4();
+
+                    // 1. Upload Original Image
                     const base64Data = image.split(',')[1];
                     const contentType = image.substring(image.indexOf(':') + 1, image.indexOf(';')) || 'image/png';
                     const fileExt = contentType.split('/')[1] || 'png';
-                    const originalPath = `${uuidOriginal}_original.${fileExt}`;
+                    const originalPath = `${generationId}/original.${fileExt}`;
 
                     const { error: uploadError1 } = await supabase.storage
                         .from('real-estate-generations')
@@ -86,15 +88,15 @@ export async function POST(req: NextRequest) {
                     const { data: publicUrlData1 } = supabase.storage.from('real-estate-generations').getPublicUrl(originalPath);
                     const finalOriginalUrl = publicUrlData1.publicUrl;
 
-                    // 2. Loop through ALL generated images and save them
+                    // 2. Loop through ALL generated images and upload them
+                    const generatedUrls: string[] = [];
+
                     await Promise.all(data.images.map(async (img: any, index: number) => {
                         const generatedImageUrl = img.url;
-                        const uuidGen = v4();
 
-                        // Upload Generated Image
                         const genRes = await fetch(generatedImageUrl);
                         const genBlob = await genRes.arrayBuffer();
-                        const genPath = `${uuidGen}_generated_${index}.jpeg`;
+                        const genPath = `${generationId}/generated_${index + 1}.jpeg`;
 
                         const { error: uploadError2 } = await supabase.storage
                             .from('real-estate-generations')
@@ -106,21 +108,21 @@ export async function POST(req: NextRequest) {
                         if (uploadError2) console.error(`Upload Generated Error (${index}):`, uploadError2);
 
                         const { data: publicUrlData2 } = supabase.storage.from('real-estate-generations').getPublicUrl(genPath);
-                        const finalGeneratedUrl = publicUrlData2.publicUrl;
-
-                        // Insert into Database
-                        const { error: dbError } = await supabase
-                            .from('real-estate-generations')
-                            .insert({
-                                id: uuidGen,
-                                original_image: finalOriginalUrl,
-                                generated_image: finalGeneratedUrl,
-                                style: style,
-                                prompt: prompt
-                            });
-
-                        if (dbError) console.error(`Database Insert Error (${index}):`, dbError);
+                        generatedUrls.push(publicUrlData2.publicUrl);
                     }));
+
+                    // 3. Insert ONE record into Database with all URLs
+                    const { error: dbError } = await supabase
+                        .from('real-estate-generations')
+                        .insert({
+                            id: generationId,
+                            original_image: finalOriginalUrl,
+                            generated_image: JSON.stringify(generatedUrls), // Store array as JSON string
+                            style: style,
+                            prompt: prompt
+                        });
+
+                    if (dbError) console.error("Database Insert Error:", dbError);
                 }
             } catch (err) {
                 console.error("Supabase storage error (non-fatal):", err);

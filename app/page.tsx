@@ -118,7 +118,19 @@ export default function Home() {
 
   const handleSelectGeneration = (gen: any) => {
     setOriginalImage(gen.original_image);
-    setGeneratedImages([gen.generated_image]);
+
+    // Handle both new (JSON array) and old (single URL string) formats
+    try {
+      const parsed = JSON.parse(gen.generated_image);
+      if (Array.isArray(parsed)) {
+        setGeneratedImages(parsed);
+      } else {
+        setGeneratedImages([gen.generated_image]);
+      }
+    } catch (e) {
+      setGeneratedImages([gen.generated_image]);
+    }
+
     setSelectedImageIndex(0);
     setSelectedStyle(gen.style || 'Modern');
     setError(null);
