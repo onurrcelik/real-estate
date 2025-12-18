@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Plus, Clock, History, ChevronLeft, ChevronRight, MessageSquare, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -32,13 +31,11 @@ export function Sidebar({ onSelectGeneration, onNewChat, isOpen, setIsOpen, lang
 
     const fetchHistory = async () => {
         try {
-            const { data, error } = await supabase
-                .from('real-estate-generations')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setGenerations(data || []);
+            const response = await fetch('/api/history');
+            if (response.ok) {
+                const data = await response.json();
+                setGenerations(data.generations || []);
+            }
         } catch (err) {
             console.error('Error fetching history:', err);
         } finally {
@@ -48,18 +45,6 @@ export function Sidebar({ onSelectGeneration, onNewChat, isOpen, setIsOpen, lang
 
     useEffect(() => {
         fetchHistory();
-
-        // Subscribe to new changes
-        const channel = supabase
-            .channel('real-time-generations')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'real-estate-generations' }, (payload) => {
-                setGenerations((prev) => [payload.new as Generation, ...prev]);
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
     }, []);
 
     const getThumbnail = (gen: Generation) => {
@@ -79,17 +64,14 @@ export function Sidebar({ onSelectGeneration, onNewChat, isOpen, setIsOpen, lang
         if (!confirm(t.app.deleteConfirm)) return;
 
         try {
-            // Because we now use folders, we should technically delete the folder too 
-            // but Supabase storage API doesn't support recursive folder delete easily without listing first.
-            // For now, just deleting the DB record is enough to hide it from UI.
-            // We can rely on a bucket lifecycle policy to clean up or implement full cleanup later.
+            const res = await fetch('/api/history', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id }),
+            });
 
-            const { error } = await supabase
-                .from('real-estate-generations')
-                .delete()
-                .eq('id', id);
+            if (!res.ok) throw new Error('Failed to delete');
 
-            if (error) throw error;
             setGenerations((prev) => prev.filter((g) => g.id !== id));
         } catch (err) {
             console.error('Error deleting:', err);

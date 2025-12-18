@@ -3,8 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { stylePrompts, negativePrompt } from "./prompt-utils";
 import { createClient } from "@supabase/supabase-js";
 import { v4 } from "uuid";
+import { auth } from "@/auth";
 
 export async function POST(req: NextRequest) {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // Ensure fal library finds the key if user used NEXT_PUBLIC_ prefix
     if (!process.env.FAL_KEY && process.env.NEXT_PUBLIC_FAL_KEY) {
         process.env.FAL_KEY = process.env.NEXT_PUBLIC_FAL_KEY;
@@ -170,7 +176,8 @@ export async function POST(req: NextRequest) {
                         generated_image: JSON.stringify(generatedUrls),
                         style: style,
                         prompt: prompt,
-                        room_type: roomType
+                        room_type: roomType,
+                        user: session.user.id
                     });
                 console.timeEnd('DB_Insert');
 
