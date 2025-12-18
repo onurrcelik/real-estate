@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useActionState } from 'react';
 import { register } from '@/app/lib/actions';
 import { useSearchParams } from 'next/navigation';
@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { translations, Language } from '@/lib/translations';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function RegisterPage() {
+function RegisterForm() {
     const [lang, setLang] = useState<Language>('it');
     const t = translations[lang];
 
@@ -103,5 +103,13 @@ export default function RegisterPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function RegisterPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <RegisterForm />
+        </Suspense>
     );
 }
