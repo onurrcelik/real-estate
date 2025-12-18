@@ -41,6 +41,37 @@ export async function register(
         return 'Invalid email or password (min 6 chars).';
     }
 
+    // Enhanced Email Validation
+    const { validate } = await import('deep-email-validator');
+    const valResult = await validate({
+        email: email,
+        sender: email, // accurate validation requires a sender
+        validateRegex: true,
+        validateMx: true,
+        validateTypo: true,
+        validateDisposable: true,
+        validateSMTP: true, // Enable SMTP to check if mailbox exists
+    });
+
+    if (!valResult.valid) {
+        let errorMessage = 'Invalid email address.';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const reasons = valResult as any;
+
+        if (reasons.reason === 'typo' && reasons.typo) {
+            errorMessage = `Did you mean ${reasons.typo}?`;
+        } else if (reasons.reason === 'disposable') {
+            errorMessage = 'Disposable email addresses are not allowed.';
+        } else if (reasons.reason === 'mx') {
+            errorMessage = 'Invalid email domain (no MX records).';
+        } else if (reasons.reason === 'smtp') {
+            errorMessage = 'Email address does not exist.';
+        } else if (reasons.reason === 'regex') {
+            errorMessage = 'Invalid email format.';
+        }
+        return errorMessage;
+    }
+
     const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!

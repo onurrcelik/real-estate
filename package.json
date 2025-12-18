@@ -20,6 +20,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "deep-email-validator": "^0.1.21",
     "framer-motion": "^12.23.26",
     "heic2any": "^0.0.4",
     "lucide-react": "^0.561.0",
