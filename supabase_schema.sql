@@ -15,3 +15,8 @@ on "clients-real-estate"
 for select
 to service_role
 using (true);
+
+-- Add role and generation_count columns (Run this if table already exists)
+alter table "clients-real-estate" 
+add column role text default 'general',
+add column generation_count int default 0;

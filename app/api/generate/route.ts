@@ -26,6 +26,35 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // --- 1. CHECK LIMITS BEFORE GENERATION ---
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+
+        const { data: user, error: userError } = await supabaseAdmin
+            .from('clients-real-estate')
+            .select('role, generation_count')
+            .eq('id', session.user.id)
+            .single();
+
+        if (!userError && user) {
+            const LIMITS = {
+                admin: 100,
+                general: 3
+            };
+
+            const userRole = (user.role as keyof typeof LIMITS) || 'general';
+            const limit = LIMITS[userRole] || LIMITS.general;
+
+            if (user.generation_count >= limit) {
+                return NextResponse.json({
+                    error: `Generation limit reached (${user.generation_count}/${limit}). Please contact support to upgrade.`,
+                    code: 'LIMIT_REACHED'
+                }, { status: 403 });
+            }
+        }
+
         // Configure fal
         // Note: In server context, it uses FAL_KEY env var automatically or we can set it via config if needed, 
         // but usually process.env.FAL_KEY is sufficient for server-side calls if configured.
@@ -182,6 +211,14 @@ export async function POST(req: NextRequest) {
                 console.timeEnd('DB_Insert');
 
                 if (dbError) console.error("Database Insert Error:", dbError);
+
+                // --- 2. INCREMENT GENERATION COUNT ---
+                if (user) {
+                    await supabaseAdmin
+                        .from('clients-real-estate')
+                        .update({ generation_count: (user.generation_count || 0) + 1 })
+                        .eq('id', session.user.id);
+                }
             }
             console.timeEnd('Total_Execution');
 

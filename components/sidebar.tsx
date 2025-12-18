@@ -22,61 +22,26 @@ interface SidebarProps {
     isOpen: boolean;
     setIsOpen: (open: boolean) => void;
     lang: Language;
+    generations: Generation[];
+    loading: boolean;
+    onDeleteGeneration: (id: string) => void;
 }
 
-export function Sidebar({ onSelectGeneration, onNewChat, isOpen, setIsOpen, lang }: SidebarProps) {
-    const [generations, setGenerations] = useState<Generation[]>([]);
-    const [loading, setLoading] = useState(true);
+export function Sidebar({
+    onSelectGeneration,
+    onNewChat,
+    isOpen,
+    setIsOpen,
+    lang,
+    generations,
+    loading,
+    onDeleteGeneration
+}: SidebarProps) {
     const t = translations[lang];
 
-    const fetchHistory = async () => {
-        try {
-            const response = await fetch('/api/history');
-            if (response.ok) {
-                const data = await response.json();
-                setGenerations(data.generations || []);
-            }
-        } catch (err) {
-            console.error('Error fetching history:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchHistory();
-    }, []);
-
-    const getThumbnail = (gen: Generation) => {
-        try {
-            const parsed = JSON.parse(gen.generated_image);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                return parsed[0];
-            }
-            return gen.generated_image;
-        } catch (e) {
-            return gen.generated_image;
-        }
-    };
-
-    const handleDelete = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation(); // Prevent selecting the item
-        if (!confirm(t.app.deleteConfirm)) return;
-
-        try {
-            const res = await fetch('/api/history', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id }),
-            });
-
-            if (!res.ok) throw new Error('Failed to delete');
-
-            setGenerations((prev) => prev.filter((g) => g.id !== id));
-        } catch (err) {
-            console.error('Error deleting:', err);
-            alert('Failed to delete');
-        }
+    const handleDelete = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        onDeleteGeneration(id);
     };
 
     const formatRoomLabel = (gen: Generation) => {
@@ -104,11 +69,10 @@ export function Sidebar({ onSelectGeneration, onNewChat, isOpen, setIsOpen, lang
                     isOpen ? "translate-x-0" : "-translate-x-full",
                 )}
             >
-                <div className="p-4 border-b">
+                <div className="p-4 border-b space-y-4">
                     <Button
                         onClick={onNewChat}
-                        className="w-full justify-start gap-2 bg-muted/50 hover:bg-muted text-foreground border-0 shadow-none"
-                        variant="outline"
+                        className="w-full justify-start gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                     >
                         <Plus className="w-4 h-4" />
                         {t.app.newDesign}
@@ -156,6 +120,7 @@ export function Sidebar({ onSelectGeneration, onNewChat, isOpen, setIsOpen, lang
                         ))
                     )}
                 </div>
+
             </div>
         </>
     );

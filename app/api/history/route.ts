@@ -15,6 +15,13 @@ export async function GET() {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     try {
+        // Fetch user data for limits
+        const { data: user, error: userError } = await supabase
+            .from('clients-real-estate')
+            .select('role, generation_count')
+            .eq('id', session.user.id)
+            .single();
+
         const { data, error } = await supabase
             .from('real-estate-generations')
             .select('*')
@@ -26,7 +33,13 @@ export async function GET() {
             return NextResponse.json({ error: 'Failed to fetch history' }, { status: 500 });
         }
 
-        return NextResponse.json({ generations: data });
+        return NextResponse.json({
+            generations: data,
+            user: user ? {
+                role: user.role,
+                generation_count: user.generation_count
+            } : null
+        });
     } catch (error) {
         console.error('History API Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -10,9 +10,13 @@ declare module 'next-auth' {
         user: {
             id: string;
             email: string;
-            //   image?: string;
-            //   name?: string;
+            role: string;
+            generation_count: number;
         }
+    }
+    interface User {
+        role?: string;
+        generation_count?: number;
     }
 }
 
@@ -42,7 +46,14 @@ export const { auth, signIn, signOut } = NextAuth({
                     if (error || !user) return null;
 
                     const passwordsMatch = await bcrypt.compare(password, user.password);
-                    if (passwordsMatch) return user;
+                    if (passwordsMatch) {
+                        return {
+                            id: user.id,
+                            email: user.email,
+                            role: user.role,
+                            generation_count: user.generation_count,
+                        };
+                    }
                 }
 
                 console.log('Invalid credentials');
@@ -54,12 +65,16 @@ export const { auth, signIn, signOut } = NextAuth({
         async jwt({ token, user }) {
             if (user) {
                 token.id = user.id;
+                token.role = user.role;
+                token.generation_count = user.generation_count;
             }
             return token;
         },
         async session({ session, token }) {
             if (token && session.user) {
                 session.user.id = token.id as string;
+                session.user.role = token.role as string;
+                session.user.generation_count = token.generation_count as number;
             }
             return session;
         },

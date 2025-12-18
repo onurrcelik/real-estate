@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 // ... imports
 import { signOutAction } from '@/app/lib/actions';
 import { UploadZone } from '@/components/upload-zone';
@@ -8,6 +8,7 @@ import { StyleSelector } from '@/components/style-selector';
 import { ComparisonViewer } from '@/components/comparison-viewer';
 import { LoadingOverlay } from '@/components/loading-overlay';
 import { Sidebar } from '@/components/sidebar';
+import { LimitPopup } from '@/components/limit-popup';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
@@ -25,10 +26,57 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [generations, setGenerations] = useState<any[]>([]);
+  const [userLimit, setUserLimit] = useState<{ role: string; count: number } | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
   const t = translations[lang];
+
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch('/api/history');
+      if (response.ok) {
+        const data = await response.json();
+        setGenerations(data.generations || []);
+        if (data.user) {
+          setUserLimit({
+            role: data.user.role || 'general',
+            count: data.user.generation_count || 0
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const handleDeleteGeneration = async (id: string) => {
+    if (!confirm(t.app.deleteConfirm)) return;
+
+    try {
+      const res = await fetch('/api/history', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!res.ok) throw new Error('Failed to delete');
+
+      setGenerations((prev) => prev.filter((g) => g.id !== id));
+    } catch (err) {
+      console.error('Error deleting:', err);
+      alert('Failed to delete');
+    }
+  };
 
   // Dynamic Styles based on Language
   const styleOptions = [
@@ -171,6 +219,8 @@ export default function Home() {
     if (!originalImage) return;
     setIsGenerating(true);
     setError(null);
+    setErrorCode(null);
+    setIsProcessing(true);
 
     try {
       const response = await fetch('/api/generate', {
@@ -187,6 +237,9 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.code) {
+          setErrorCode(data.code);
+        }
         throw new Error(data.details || data.error || t.app.errorGenerating);
       }
 
@@ -203,6 +256,8 @@ export default function Home() {
 
         setGeneratedImages(data.generatedImages);
         setSelectedImageIndex(0);
+        // Refresh history to update limit count and show new generation in sidebar
+        fetchHistory();
       } else {
         throw new Error(t.app.errorNoImages);
       }
@@ -273,6 +328,15 @@ export default function Home() {
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
         lang={lang}
+        generations={generations}
+        loading={loadingHistory}
+        onDeleteGeneration={handleDeleteGeneration}
+      />
+
+      <LimitPopup
+        isOpen={errorCode === 'LIMIT_REACHED'}
+        onClose={() => setErrorCode(null)}
+        lang={lang}
       />
 
       <main className={cn(
@@ -295,7 +359,35 @@ export default function Home() {
             )}
           </div>
 
-          <div className="flex-1 flex justify-end items-center gap-2">
+          <div className="flex-1 flex justify-end items-center gap-4">
+            {/* Usage Limit Display */}
+            {userLimit && (
+              <div className="flex flex-col items-end mr-2">
+                {userLimit.role === 'admin' ? (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
+                    <span>{t.app?.limitless || "Usage Limit: Unlimited"}</span>
+                    <span className="text-sm"></span>
+                  </div>
+                ) : (
+                  <div className="w-32 flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
+                      <span>{t.app?.usage || "Usage"}</span>
+                      <span>{userLimit.count} / 3</span>
+                    </div>
+                    <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden border border-border/50">
+                      <div
+                        className={cn(
+                          "h-full transition-all duration-500",
+                          userLimit.count >= 3 ? "bg-destructive" : "bg-primary"
+                        )}
+                        style={{ width: `${Math.min((userLimit.count / 3) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <form action={async () => {
               await signOutAction();
             }} onSubmit={(e) => {
@@ -426,8 +518,28 @@ export default function Home() {
                       </div>
 
                       {error && (
-                        <div className="p-4 bg-destructive/10 text-destructive rounded-lg text-sm border border-destructive/20 flex items-center gap-2">
-                          <span className="font-semibold">Error:</span> {error}
+                        <div className="p-4 bg-destructive/10 text-destructive rounded-lg text-sm border border-destructive/20 mt-4">
+                          {errorCode === 'LIMIT_REACHED' ? (
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center gap-2 font-semibold">
+                                <span>⚠️</span>
+                                {t.app.limitReachedError}
+                              </div>
+                              <div className="pl-6 flex flex-col gap-2 text-destructive/90">
+                                <p className="font-medium bg-background/50 w-fit px-3 py-1 rounded-md border border-destructive/10">
+                                  {t.app.contactSupport}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-green-600">WhatsApp:</span>
+                                  <span>{t.app.whatsappContact}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">Error:</span> {error}
+                            </div>
+                          )}
                         </div>
                       )}
                     </Card>
