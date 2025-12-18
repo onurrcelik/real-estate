@@ -48,6 +48,25 @@ export const translations = {
             bohemian: { label: "Bohemian", desc: "Eclectic, colorful" },
             minimalist: { label: "Minimalist", desc: "Less is more" },
             contemporary: { label: "Contemporary", desc: "Current, trendy" },
+        },
+        auth: {
+            welcome: "Welcome to Rinova AI",
+            createAccountTitle: "Create an Account",
+            email: "Email",
+            emailPlaceholder: "Enter your email address",
+            password: "Password",
+            passwordPlaceholder: "Enter password",
+            passwordCreatePlaceholder: "Create a password",
+            login: "Log in",
+            loggingIn: "Logging in...",
+            register: "Register",
+            registering: "Creating account...",
+            signOut: "Sign Out",
+            needAccount: "Need an account?",
+            haveAccount: "Already have an account?",
+            createAccountLink: "Create Account",
+            invalidCredentials: "Invalid credentials.",
+            somethingWrong: "Something went wrong."
         }
     },
     it: {
@@ -96,6 +115,25 @@ export const translations = {
             bohemian: { label: "Bohémien", desc: "Eclettico, colorato" },
             minimalist: { label: "Minimalista", desc: "Meno è meglio" },
             contemporary: { label: "Contemporaneo", desc: "Attuale, di tendenza" },
+        },
+        auth: {
+            welcome: "Benvenuto su Rinova AI",
+            createAccountTitle: "Crea un Account",
+            email: "Email",
+            emailPlaceholder: "Inserisci il tuo indirizzo email",
+            password: "Password",
+            passwordPlaceholder: "Inserisci la password",
+            passwordCreatePlaceholder: "Crea una password",
+            login: "Accedi",
+            loggingIn: "Accesso in corso...",
+            register: "Registrati",
+            registering: "Creazione account...",
+            signOut: "Esci",
+            needAccount: "Non hai un account?",
+            haveAccount: "Hai già un account?",
+            createAccountLink: "Crea Account",
+            invalidCredentials: "Credenziali non valide.",
+            somethingWrong: "Qualcosa è andato storto."
         }
     }
 };

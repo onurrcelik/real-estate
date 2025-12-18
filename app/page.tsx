@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+// ... imports
+import { signOutAction } from '@/app/lib/actions';
 import { UploadZone } from '@/components/upload-zone';
 import { StyleSelector } from '@/components/style-selector';
 import { ComparisonViewer } from '@/components/comparison-viewer';
@@ -293,7 +295,14 @@ export default function Home() {
             )}
           </div>
 
-          <div className="flex-1 flex justify-end">
+          <div className="flex-1 flex justify-end items-center gap-2">
+            <form action={async () => {
+              await signOutAction();
+            }}>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                Sign Out
+              </Button>
+            </form>
             <Select value={lang} onValueChange={toggleLanguage}>
               <SelectTrigger className="w-[140px] bg-background/50 backdrop-blur-sm border-muted-foreground/20">
                 <SelectValue placeholder="Language" />
