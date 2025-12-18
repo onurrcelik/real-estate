@@ -66,7 +66,8 @@ export const translations = {
             haveAccount: "Already have an account?",
             createAccountLink: "Create Account",
             invalidCredentials: "Invalid credentials.",
-            somethingWrong: "Something went wrong."
+            somethingWrong: "Something went wrong.",
+            signOutConfirm: "Are you sure you want to sign out?"
         }
     },
     it: {
@@ -133,7 +134,8 @@ export const translations = {
             haveAccount: "Hai già un account?",
             createAccountLink: "Crea Account",
             invalidCredentials: "Credenziali non valide.",
-            somethingWrong: "Qualcosa è andato storto."
+            somethingWrong: "Qualcosa è andato storto.",
+            signOutConfirm: "Sei sicuro di voler uscire?"
         }
     }
 };

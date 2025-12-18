@@ -298,9 +298,13 @@ export default function Home() {
           <div className="flex-1 flex justify-end items-center gap-2">
             <form action={async () => {
               await signOutAction();
+            }} onSubmit={(e) => {
+              if (!confirm(t.auth.signOutConfirm)) {
+                e.preventDefault();
+              }
             }}>
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                Sign Out
+                {t.auth.signOut}
               </Button>
             </form>
             <Select value={lang} onValueChange={toggleLanguage}>
