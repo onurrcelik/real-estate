@@ -25,6 +25,9 @@ interface SidebarProps {
     generations: Generation[];
     loading: boolean;
     onDeleteGeneration: (id: string) => void;
+    userLimit?: { role: string; count: number } | null;
+    onSignOut?: () => void;
+    onLanguageChange?: (lang: Language) => void;
 }
 
 export function Sidebar({
@@ -35,7 +38,10 @@ export function Sidebar({
     lang,
     generations,
     loading,
-    onDeleteGeneration
+    onDeleteGeneration,
+    userLimit,
+    onSignOut,
+    onLanguageChange
 }: SidebarProps) {
     const t = translations[lang];
 
@@ -63,9 +69,17 @@ export function Sidebar({
 
     return (
         <>
+            {/* Mobile Overlay */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm transition-opacity"
+                    onClick={() => setIsOpen(false)}
+                />
+            )}
+
             <div
                 className={cn(
-                    "fixed inset-y-0 left-0 z-40 w-64 bg-card border-r shadow-xl transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:h-screen md:shadow-none flex flex-col",
+                    "fixed inset-y-0 left-0 z-40 w-72 bg-card border-r shadow-2xl transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:w-64 md:h-screen md:shadow-none flex flex-col",
                     isOpen ? "translate-x-0" : "-translate-x-full",
                 )}
             >
@@ -119,6 +133,55 @@ export function Sidebar({
                             </div>
                         ))
                     )}
+                </div>
+
+                {/* Mobile Only Controls at Bottom */}
+                <div className="p-4 border-t bg-muted/20 space-y-4 md:hidden">
+                    {userLimit && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                <span>{t.app?.usage || "Usage"}</span>
+                                <span>{userLimit.role === 'admin' ? '∞' : `${userLimit.count} / 3`}</span>
+                            </div>
+                            {userLimit.role !== 'admin' && (
+                                <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden border border-border/50">
+                                    <div
+                                        className={cn(
+                                            "h-full transition-all duration-500",
+                                            userLimit.count >= 3 ? "bg-destructive" : "bg-primary"
+                                        )}
+                                        style={{ width: `${Math.min((userLimit.count / 3) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="flex gap-2">
+                        {onLanguageChange && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 h-9 text-xs"
+                                onClick={() => onLanguageChange(lang === 'it' ? 'en' : 'it')}
+                            >
+                                {lang === 'it' ? '🇬🇧 English' : '🇮🇹 Italiano'}
+                            </Button>
+                        )}
+
+                        {onSignOut && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 h-9 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                    if (confirm(t.auth.signOutConfirm)) onSignOut();
+                                }}
+                            >
+                                {t.auth.signOut}
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
             </div>

@@ -23,6 +23,7 @@ export default function Home() {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [numImages, setNumImages] = useState<number>(4);
   const [selectedStyle, setSelectedStyle] = useState<string>('Modern');
+  const resultsRef = React.useRef<HTMLDivElement>(null);
   const [selectedRoomType, setSelectedRoomType] = useState<string>('living_room');
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
@@ -260,6 +261,13 @@ export default function Home() {
         setSelectedImageIndex(0);
         // Refresh history to update limit count and show new generation in sidebar
         fetchHistory();
+
+        // Auto-scroll to results on mobile
+        setTimeout(() => {
+          if (window.innerWidth < 1024 && resultsRef.current) {
+            resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
       } else {
         throw new Error(t.app.errorNoImages);
       }
@@ -333,6 +341,9 @@ export default function Home() {
         generations={generations}
         loading={loadingHistory}
         onDeleteGeneration={handleDeleteGeneration}
+        userLimit={userLimit}
+        onSignOut={signOutAction}
+        onLanguageChange={setLang}
       />
 
       <LimitPopup
@@ -361,7 +372,7 @@ export default function Home() {
             )}
           </div>
 
-          <div className="flex-1 flex justify-end items-center gap-4">
+          <div className="flex-1 hidden md:flex justify-end items-center gap-4">
             {/* Usage Limit Display */}
             {userLimit && (
               <div className="flex flex-col items-end mr-2">
@@ -577,10 +588,10 @@ export default function Home() {
                   </div>
 
                   {/* Viewer Panel */}
-                  <div className="flex flex-col gap-6">
-                    <div className="bg-card border rounded-2xl overflow-hidden shadow-2xl min-h-[500px] flex items-center justify-center relative ring-1 ring-border/50">
+                  <div className="flex flex-col gap-6" ref={resultsRef}>
+                    <div className="bg-card border rounded-2xl overflow-hidden shadow-2xl min-h-[300px] md:min-h-[500px] flex items-center justify-center relative ring-1 ring-border/50">
                       {generatedImages.length === 0 ? (
-                        <div className="relative w-full h-full min-h-[600px] flex items-center justify-center bg-muted/10">
+                        <div className="relative w-full h-full min-h-[300px] md:min-h-[600px] flex items-center justify-center bg-muted/10">
                           <img
                             src={originalImage}
                             alt="Original"

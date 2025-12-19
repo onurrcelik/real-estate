@@ -45,7 +45,7 @@ export function UploadZone({
         <Card
             {...getRootProps()}
             className={cn(
-                'border-2 border-dashed transition-all duration-300 cursor-pointer flex flex-col items-center justify-center p-12 text-center group bg-background/50 backdrop-blur-sm relative overflow-hidden',
+                'border-2 border-dashed transition-all duration-300 cursor-pointer flex flex-col items-center justify-center p-6 md:p-12 text-center group bg-background/50 backdrop-blur-sm relative overflow-hidden',
                 isDragActive
                     ? 'border-primary bg-primary/10 scale-[1.02]'
                     : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50',

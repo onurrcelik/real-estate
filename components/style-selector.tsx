@@ -38,7 +38,7 @@ export function StyleSelector({ currentStyle, onStyleSelect, className, styles }
                         </div>
                         <div className="w-full">
                             <h4 className="font-medium text-xs sm:text-sm leading-tight">{style.label}</h4>
-                            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight mt-1 opacity-80">{style.description}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight mt-1 opacity-90">{style.description}</p>
                         </div>
                     </Card>
                 );
