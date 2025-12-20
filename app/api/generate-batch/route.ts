@@ -1,3 +1,4 @@
+import { getDidacticConsistencyPrompts } from "../generate/consistency-descriptors";
 import * as fal from "@fal-ai/serverless-client";
 import { NextRequest, NextResponse } from "next/server";
 import { stylePrompts, negativePrompt } from "../generate/prompt-utils";
@@ -80,8 +81,25 @@ export async function POST(req: NextRequest) {
             specificPrompt = "IMPORTANT: Preserve the dining table's location and the ceiling light fixture position. Focus on updating the table style and chairs.";
         }
 
+
+
+
+        // Deterministic Consistency Constraint (Furniture, Ligthing, Rugs, Curtains, Decor)
+        const consistencyConstraint = getDidacticConsistencyPrompts(style, consistencySeed);
+
+        // Lighting & Atmosphere
+        const lightingPrompt = "Professional interior design photography lighting, bright natural sunlight, warm ambient fill, 4k detail.";
+
+
+        // Strict Spatial Constraint
+        const spatialConstraint = "IMPORTANT: Retain the EXACT position, scale, and layout of all existing furniture. Do NOT move tables, chairs, or sofas. Only change their material, color, and style in place. The geometry of the room and furniture placement must remain 100% identical to the original.";
+
+
         const prompt = `Strictly preserve exact room structure, perspective, and original dimensions. Do NOT change the camera angle or field of view.
+    ${lightingPrompt}
+    ${spatialConstraint}
     Virtual staging of a ${roomLabel} in ${style} style. ${styleDescription}
+    ${consistencyConstraint}
     High quality, photorealistic, interior design, 8k resolution.
     Keep all walls, windows, floors, and ceiling exactly as they are. Only replace movable furniture and decor to match ${style}.
     ${specificPrompt}`;
@@ -159,18 +177,6 @@ export async function POST(req: NextRequest) {
             }
 
             // 4. Record to DB
-            if (supabase && originalUrl && generatedUrls.length > 0) {
-                await supabase.from('real-estate-generations').insert({
-                    id: recordId,
-                    original_image: originalUrl,
-                    generated_image: JSON.stringify(generatedUrls),
-                    style: style,
-                    prompt: prompt,
-                    room_type: roomType,
-                    user: session.user.id
-                });
-            }
-
             return {
                 original: originalUrl || base64Image, // Fallback to base64 if upload failed or no supabase
                 generated: generatedUrls
@@ -178,9 +184,34 @@ export async function POST(req: NextRequest) {
         };
 
         const imagePromises = images.map((img: string, idx: number) => processImagePromise(img, idx));
-        const results = await Promise.all(imagePromises);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const results: any[] = await Promise.all(imagePromises);
 
         console.timeEnd('Batch_Total_Execution');
+
+        // 4. Record to DB (Single Entry for Batch)
+        // We use the first image as the "cover" original_image for the history thumbnail.
+        // We store the full structured results in generated_image JSON.
+        if (supabase && results.length > 0) {
+            const coverImage = results[0].original;
+
+            // Construct the Batch Generation Object
+            // Structure matching what page.tsx expects: { isBatch: true, results: [...] }
+            const batchData = {
+                isBatch: true,
+                results: results
+            };
+
+            await supabase.from('real-estate-generations').insert({
+                id: v4(), // New ID for the batch record
+                original_image: coverImage,
+                generated_image: JSON.stringify(batchData),
+                style: style,
+                prompt: prompt,
+                room_type: roomType,
+                user: session.user.id
+            });
+        }
 
         // Increment count by total generated items
         if (user) {

@@ -375,41 +375,66 @@ export default function Home() {
     setSelectedRoomType('living_room');
   };
 
-  const handleDownload = async () => {
-    if (generatedImages.length === 0) return;
+  const downloadImage = async (url: string, filename = `staged-room-${Date.now()}.png`) => {
     try {
-      const response = await fetch(generatedImages[selectedImageIndex]);
+      const response = await fetch(url);
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = `staged-room-${Date.now()}.png`;
+      link.href = blobUrl;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(blobUrl);
     } catch (e) {
       console.error('Failed to download', e);
     }
   };
 
+  const handleDownload = () => {
+    if (generatedImages.length === 0) return;
+    downloadImage(generatedImages[selectedImageIndex]);
+  };
+
   const handleSelectGeneration = (gen: any) => {
-    setOriginalImage(gen.original_image);
     try {
       const parsed = JSON.parse(gen.generated_image);
-      if (Array.isArray(parsed)) {
-        setGeneratedImages(parsed);
+
+      // 1. Check if it's a batch generation
+      if (parsed.isBatch && parsed.results) {
+        setMode('batch');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setOriginalImages(parsed.results.map((r: any) => r.original));
+        setBatchResults(parsed.results);
+
+        setOriginalImage(null);
+        setGeneratedImages([]);
       } else {
-        setGeneratedImages([gen.generated_image]);
+        // 2. Standard Single Generation
+        setMode('single');
+        setOriginalImage(gen.original_image);
+        if (Array.isArray(parsed)) {
+          setGeneratedImages(parsed);
+        } else {
+          setGeneratedImages([gen.generated_image]);
+        }
+        setBatchResults([]);
+        setOriginalImages([]);
       }
     } catch (e) {
+      // Fallback for very old data or errors
+      setMode('single');
+      setOriginalImage(gen.original_image);
       setGeneratedImages([gen.generated_image]);
+      setBatchResults([]);
+      setOriginalImages([]);
     }
+
     setSelectedImageIndex(0);
     setSelectedStyle(gen.style || 'Modern');
     setError(null);
     setIsSidebarOpen(false);
-    setMode('single'); // Always switch to single for history view
   };
 
   const handleNewChat = () => {
@@ -785,12 +810,27 @@ export default function Home() {
                                 <h3 className="text-lg font-bold text-muted-foreground flex items-center gap-2">
                                   <SingleImageIcon className="w-5 h-5" /> Angle {idx + 1}
                                 </h3>
-                                <div className="h-[400px] bg-card border rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/50">
+                                <div className="h-[400px] bg-card border rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/50 relative group">
                                   <ComparisonViewer
                                     beforeImage={result.original}
                                     afterImage={result.generated[0]}
                                     originalLabel={`Original (Angle ${idx + 1})`}
                                   />
+                                  {/* Save Button for Batch Result */}
+                                  {result.generated[0] && (
+                                    <Button
+                                      size="icon"
+                                      variant="secondary"
+                                      className="absolute bottom-4 right-4 z-20 shadow-lg hover:scale-105 transition-transform bg-white/90 hover:bg-white text-gray-900"
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // prevent interfering with comparison viewer if any
+                                        downloadImage(result.generated[0], `angle-${idx + 1}-${Date.now()}.png`);
+                                      }}
+                                      title="Download Generated Image"
+                                    >
+                                      <Download className="w-5 h-5" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             ))}
