@@ -1,6 +1,6 @@
 'use server';
 
-import { signIn, signOut } from '@/auth';
+import { signIn, signOut } from '@/lib/auth/auth';
 import { AuthError } from 'next-auth';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';

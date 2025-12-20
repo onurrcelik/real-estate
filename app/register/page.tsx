@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useActionState } from 'react';
-import { register } from '@/app/lib/actions';
+import { register } from '@/app/actions';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { translations, Language } from '@/lib/translations';

@@ -2,19 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 // ... imports
-import { signOutAction } from '@/app/lib/actions';
-import { UploadZone } from '@/components/upload-zone';
-import { StyleSelector } from '@/components/style-selector';
-import { ComparisonViewer } from '@/components/comparison-viewer';
-import { LoadingOverlay } from '@/components/loading-overlay';
-import { Sidebar } from '@/components/sidebar';
-import { LimitPopup } from '@/components/limit-popup';
+import { signOutAction } from '@/app/actions';
+import { UploadZone } from '@/components/features/upload/upload-zone';
+import { StyleSelector } from '@/components/features/style/style-selector';
+import { ComparisonViewer } from '@/components/features/viewer/comparison-viewer';
+import { LoadingOverlay } from '@/components/features/layout/loading-overlay';
+import { Sidebar } from '@/components/features/layout/sidebar';
+import { LimitPopup } from '@/components/features/layout/limit-popup';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { MismatchModal } from '@/components/mismatch-modal';
+import { MismatchModal } from '@/components/features/layout/mismatch-modal';
 import { Loader2, RefreshCw, Download, Palette, Home as HomeIcon, Briefcase, Coffee, Ghost, Sun, Globe, Layers, Image as SingleImageIcon } from 'lucide-react';
-import { BatchUploadZone } from '@/components/batch-upload-zone';
+import { BatchUploadZone } from '@/components/features/upload/batch-upload-zone';
 import { cn } from '@/lib/utils';
 import { translations, Language } from '@/lib/translations';
 

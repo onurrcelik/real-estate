@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stylePrompts, negativePrompt } from "./prompt-utils";
 import { createClient } from "@supabase/supabase-js";
 import { v4 } from "uuid";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/auth";
 
 export async function POST(req: NextRequest) {
     const session = await auth();

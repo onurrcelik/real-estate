@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { auth } from '@/auth';
+import { auth } from '@/lib/auth/auth';
 
 export async function GET() {
     const session = await auth();
