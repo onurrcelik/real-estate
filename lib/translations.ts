@@ -52,6 +52,8 @@ export const translations = {
             roomMismatchMsg: "We detected this room as a {detected}. You selected {selected}. Results might be poor.",
             useDetected: "Use {detected}",
             keepSelected: "Keep {selected}",
+            watchFlythrough: "Watch Flythrough",
+            flythroughTitle: "Room Tour",
         },
         rooms: {
             living_room: "Living Room",
@@ -142,6 +144,8 @@ export const translations = {
             roomMismatchMsg: "Abbiamo rilevato questa stanza come {detected}. Hai selezionato {selected}. I risultati potrebbero essere scarsi.",
             useDetected: "Usa {detected}",
             keepSelected: "Tieni {selected}",
+            watchFlythrough: "Guarda Tour Virtuale",
+            flythroughTitle: "Tour della Stanza",
         },
         rooms: {
             living_room: "Soggiorno",

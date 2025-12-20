@@ -6,6 +6,7 @@ import { signOutAction } from '@/app/actions';
 import { UploadZone } from '@/components/features/upload/upload-zone';
 import { StyleSelector } from '@/components/features/style/style-selector';
 import { ComparisonViewer } from '@/components/features/viewer/comparison-viewer';
+import { FlythroughViewer } from '@/components/features/viewer/flythrough-viewer';
 import { LoadingOverlay } from '@/components/features/layout/loading-overlay';
 import { Sidebar } from '@/components/features/layout/sidebar';
 import { LimitPopup } from '@/components/features/layout/limit-popup';
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { MismatchModal } from '@/components/features/layout/mismatch-modal';
-import { Loader2, RefreshCw, Download, Palette, Home as HomeIcon, Briefcase, Coffee, Ghost, Sun, Globe, Layers, Image as SingleImageIcon } from 'lucide-react';
+import { Loader2, RefreshCw, Download, Palette, Home as HomeIcon, Briefcase, Coffee, Ghost, Sun, Globe, Layers, Image as SingleImageIcon, Play } from 'lucide-react';
 import { BatchUploadZone } from '@/components/features/upload/batch-upload-zone';
 import { cn } from '@/lib/utils';
 import { translations, Language } from '@/lib/translations';
@@ -34,6 +35,7 @@ export default function Home() {
   // Batch State
   const [originalImages, setOriginalImages] = useState<string[]>([]);
   const [batchResults, setBatchResults] = useState<{ original: string; generated: string[] }[]>([]);
+  const [showFlythrough, setShowFlythrough] = useState(false);
 
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -874,36 +876,60 @@ export default function Home() {
                             <LoadingOverlay isVisible={isGenerating} lang={lang} />
                           </div>
                         ) : (
-                          <div className="space-y-12">
-                            {batchResults.map((result, idx) => (
-                              <div key={idx} className="space-y-4">
-                                <h3 className="text-lg font-bold text-muted-foreground flex items-center gap-2">
-                                  <SingleImageIcon className="w-5 h-5" /> {t.app.angle} {idx + 1}
-                                </h3>
-                                <div className="h-[400px] bg-card border rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/50 relative group">
-                                  <ComparisonViewer
-                                    beforeImage={result.original}
-                                    afterImage={result.generated[0]}
-                                    originalLabel={`${t.app.originalLabel} (${t.app.angle} ${idx + 1})`}
-                                  />
-                                  {/* Save Button for Batch Result */}
-                                  {result.generated[0] && (
-                                    <Button
-                                      size="icon"
-                                      variant="secondary"
-                                      className="absolute bottom-4 right-4 z-20 shadow-lg hover:scale-105 transition-transform bg-white/90 hover:bg-white text-gray-900"
-                                      onClick={(e) => {
-                                        e.stopPropagation(); // prevent interfering with comparison viewer if any
-                                        downloadImage(result.generated[0], `angle-${idx + 1}-${Date.now()}.png`);
-                                      }}
-                                      title="Download Generated Image"
-                                    >
-                                      <Download className="w-5 h-5" />
-                                    </Button>
-                                  )}
+                          <div className="space-y-8">
+                            {/* Flythrough Button */}
+                            <div className="flex justify-center">
+                              <Button
+                                onClick={() => setShowFlythrough(true)}
+                                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                                size="lg"
+                              >
+                                <Play className="w-5 h-5 mr-2" />
+                                {t.app.watchFlythrough}
+                              </Button>
+                            </div>
+
+                            {/* Batch Results Grid */}
+                            <div className="space-y-12">
+                              {batchResults.map((result, idx) => (
+                                <div key={idx} className="space-y-4">
+                                  <h3 className="text-lg font-bold text-muted-foreground flex items-center gap-2">
+                                    <SingleImageIcon className="w-5 h-5" /> {t.app.angle} {idx + 1}
+                                  </h3>
+                                  <div className="h-[400px] bg-card border rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/50 relative group">
+                                    <ComparisonViewer
+                                      beforeImage={result.original}
+                                      afterImage={result.generated[0]}
+                                      originalLabel={`${t.app.originalLabel} (${t.app.angle} ${idx + 1})`}
+                                    />
+                                    {/* Save Button for Batch Result */}
+                                    {result.generated[0] && (
+                                      <Button
+                                        size="icon"
+                                        variant="secondary"
+                                        className="absolute bottom-4 right-4 z-20 shadow-lg hover:scale-105 transition-transform bg-white/90 hover:bg-white text-gray-900"
+                                        onClick={(e) => {
+                                          e.stopPropagation(); // prevent interfering with comparison viewer if any
+                                          downloadImage(result.generated[0], `angle-${idx + 1}-${Date.now()}.png`);
+                                        }}
+                                        title="Download Generated Image"
+                                      >
+                                        <Download className="w-5 h-5" />
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+
+                            {/* Flythrough Viewer Modal */}
+                            {showFlythrough && (
+                              <FlythroughViewer
+                                images={batchResults.map(r => r.generated[0]).filter(Boolean)}
+                                onClose={() => setShowFlythrough(false)}
+                                lang={lang}
+                              />
+                            )}
                           </div>
                         )}
                       </div>
