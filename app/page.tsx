@@ -12,7 +12,8 @@ import { LimitPopup } from '@/components/limit-popup';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { Loader2, RefreshCw, Download, Palette, Home as HomeIcon, Briefcase, Coffee, Ghost, Sun, Globe } from 'lucide-react';
+import { Loader2, RefreshCw, Download, Palette, Home as HomeIcon, Briefcase, Coffee, Ghost, Sun, Globe, Layers, Image as SingleImageIcon } from 'lucide-react';
+import { BatchUploadZone } from '@/components/batch-upload-zone';
 import { cn } from '@/lib/utils';
 import { translations, Language } from '@/lib/translations';
 
@@ -26,6 +27,13 @@ export default function Home() {
   const resultsRef = React.useRef<HTMLDivElement>(null);
   const [selectedRoomType, setSelectedRoomType] = useState<string>('living_room');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Mode State
+  const [mode, setMode] = useState<'single' | 'batch'>('single');
+  // Batch State
+  const [originalImages, setOriginalImages] = useState<string[]>([]);
+  const [batchResults, setBatchResults] = useState<{ original: string; generated: string[] }[]>([]);
+
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -217,6 +225,42 @@ export default function Home() {
     reader.readAsDataURL(processFile);
   };
 
+  const handleBatchImagesSelect = async (files: File[]) => {
+    setIsProcessing(true);
+    try {
+      const processed = await Promise.all(files.map(async (file) => {
+        // 1. Handle HEIC, Resize etc. (Duplicate logic for now or refactor)
+        // For simplicity, reusing same logic but inside loop
+        let processFile = file;
+        if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') {
+          const heic2any = (await import('heic2any')).default;
+          const convertedBlob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.95 });
+          const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+          processFile = new File([blob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
+        }
+        const resizedBlob = await resizeImage(processFile);
+        const newName = processFile.name.replace(/\.[^/.]+$/, "") + ".jpg";
+        processFile = new File([resizedBlob], newName, { type: 'image/jpeg' });
+
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(processFile);
+        });
+      }));
+
+      setOriginalImages(processed);
+      setBatchResults([]);
+      setError(null);
+    } catch (e) {
+      console.error("Batch processing failed", e);
+      setError("Failed to process some images.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!originalImage) return;
     setIsGenerating(true);
@@ -280,9 +324,51 @@ export default function Home() {
     }
   };
 
+  const handleBatchGenerate = async () => {
+    if (originalImages.length === 0) return;
+    setIsGenerating(true);
+    setError(null);
+    setErrorCode(null);
+
+    try {
+      // We use default numImagesPerAngle = 1 for now or hardcode or let user choose.
+      // User didn't specify multi-variations per angle in batch req, but "consistency".
+      // Let's assume 1 variation per angle is enough for a "project".
+      const response = await fetch('/api/generate-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          images: originalImages,
+          style: selectedStyle,
+          roomType: selectedRoomType,
+          numImagesPerAngle: 1 // Default
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.code) setErrorCode(data.code);
+        throw new Error(data.details || data.error || "Batch generation failed");
+      }
+
+      if (data.results) {
+        setBatchResults(data.results);
+        fetchHistory();
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleReset = () => {
     setOriginalImage(null);
     setGeneratedImages([]);
+    setOriginalImages([]);
+    setBatchResults([]);
     setSelectedImageIndex(0);
     setImageSize(null);
     setError(null);
@@ -323,6 +409,7 @@ export default function Home() {
     setSelectedStyle(gen.style || 'Modern');
     setError(null);
     setIsSidebarOpen(false);
+    setMode('single'); // Always switch to single for history view
   };
 
   const handleNewChat = () => {
@@ -431,7 +518,7 @@ export default function Home() {
         )}>
 
           {/* Large Title - Only show on Landing Page */}
-          {!originalImage && (
+          {(!originalImage && originalImages.length === 0) && (
             <header className="text-center space-y-4 py-8 md:py-16">
               <h1 className="text-5xl md:text-7xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 dark:from-white dark:via-gray-200 dark:to-white animate-in fade-in slide-in-from-top-4 duration-700 drop-shadow-sm">
                 {t.app.title}
@@ -442,25 +529,56 @@ export default function Home() {
             </header>
           )}
 
+          {/* Mode Toggle - Only show when no images selected yet */}
+          {(!originalImage && originalImages.length === 0) && (
+            <div className="flex justify-center animate-in fade-in zoom-in duration-500 delay-200">
+              <div className="bg-secondary/50 p-1 rounded-full border border-border/50 flex gap-2">
+                <Button
+                  variant={mode === 'single' ? 'default' : 'ghost'}
+                  className="rounded-full px-6"
+                  onClick={() => setMode('single')}
+                >
+                  <SingleImageIcon className="w-4 h-4 mr-2" />
+                  Single Room
+                </Button>
+                <Button
+                  variant={mode === 'batch' ? 'default' : 'ghost'}
+                  className="rounded-full px-6"
+                  onClick={() => setMode('batch')}
+                >
+                  <Layers className="w-4 h-4 mr-2" />
+                  Multi-Angle Project
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className={cn("transition-all", originalImage ? "h-full" : "space-y-10")}>
 
 
             {/* Upload Zone */}
-            {!originalImage && (
+            {(!originalImage && originalImages.length === 0) && (
               <div className="max-w-2xl mx-auto animate-in fade-in zoom-in duration-500">
-                <UploadZone
-                  onImageSelected={handleImageSelect}
-                  title={t.app.uploadMainTitle}
-                  dragActiveTitle={t.app.uploadDragActive}
-                  description={t.app.uploadDesc}
-                  supportedFormats={t.app.uploadSupportedFormats}
-                  isProcessing={isProcessing}
-                />
+                {mode === 'single' ? (
+                  <UploadZone
+                    onImageSelected={handleImageSelect}
+                    title={t.app.uploadMainTitle}
+                    dragActiveTitle={t.app.uploadDragActive}
+                    description={t.app.uploadDesc}
+                    supportedFormats={t.app.uploadSupportedFormats}
+                    isProcessing={isProcessing}
+                  />
+                ) : (
+                  <BatchUploadZone
+                    onImagesSelected={handleBatchImagesSelect}
+                    isProcessing={isProcessing}
+                  />
+                )}
               </div>
             )}
 
-            {/* Workspace */}
-            {originalImage && (
+            {/* Workspace - Single or Batch */}
+            {(originalImage || originalImages.length > 0) && (
               <div className="space-y-8 animate-in slide-in-from-bottom duration-500">
 
                 <div className="grid lg:grid-cols-[500px_1fr] gap-8 items-start">
@@ -501,24 +619,30 @@ export default function Home() {
                         <label className="text-sm font-semibold tracking-wide text-foreground/80 uppercase">
                           {t.app.numberOfImages || "Number of Images"}
                         </label>
-                        <div className="grid grid-cols-2 gap-3 p-1 bg-secondary/30 rounded-lg border border-border/50">
-                          {[2, 4].map((num) => (
-                            <Button
-                              key={num}
-                              variant={numImages === num ? "default" : "ghost"}
-                              size="sm"
-                              onClick={() => setNumImages(num)}
-                              className={cn(
-                                "w-full transition-all text-sm font-medium",
-                                numImages === num
-                                  ? "bg-gray-900 text-white shadow-md dark:bg-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100"
-                                  : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
-                              )}
-                            >
-                              {num} {lang === 'it' ? (num === 2 ? 'Immagini' : 'Immagini') : (num === 2 ? 'Images' : 'Images')}
-                            </Button>
-                          ))}
-                        </div>
+                        {mode === 'single' ? (
+                          <div className="grid grid-cols-2 gap-3 p-1 bg-secondary/30 rounded-lg border border-border/50">
+                            {[2, 4].map((num) => (
+                              <Button
+                                key={num}
+                                variant={numImages === num ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => setNumImages(num)}
+                                className={cn(
+                                  "w-full transition-all text-sm font-medium",
+                                  numImages === num
+                                    ? "bg-gray-900 text-white shadow-md dark:bg-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100"
+                                    : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                )}
+                              >
+                                {num} {lang === 'it' ? (num === 2 ? 'Immagini' : 'Immagini') : (num === 2 ? 'Images' : 'Images')}
+                              </Button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground italic">
+                            Batch mode generates 1 variation per angle to ensure consistency.
+                          </div>
+                        )}
                         <p className="text-[11px] text-muted-foreground/80 font-medium italic flex items-center gap-1.5 px-1">
                           <span className="text-primary">✨</span>
                           {t.app.imageRecommendation || "We recommend 4 images for best results"}
@@ -527,8 +651,8 @@ export default function Home() {
 
                       <div className="pt-2 flex flex-col gap-4">
                         <Button
-                          onClick={handleGenerate}
-                          disabled={isGenerating || generatedImages.length > 0}
+                          onClick={mode === 'single' ? handleGenerate : handleBatchGenerate}
+                          disabled={isGenerating || (mode === 'single' ? generatedImages.length > 0 : batchResults.length > 0)}
                           size="lg"
                           className="w-full text-lg font-semibold shadow-lg shadow-blue-500/20 h-14 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-[1.02]"
                         >
@@ -537,7 +661,7 @@ export default function Home() {
                               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                               {t.app.generating}
                             </>
-                          ) : generatedImages.length > 0 ? (
+                          ) : (mode === 'single' ? generatedImages.length > 0 : batchResults.length > 0) ? (
                             <>
                               <RefreshCw className="mr-2 h-4 w-4" />
                               {t.app.regenerate}
@@ -545,9 +669,11 @@ export default function Home() {
                           ) : (
                             t.app.generate
                           )}
+
                         </Button>
 
-                        {generatedImages.length > 0 && (
+                        {/* Download removed for batch for now or needs update */}
+                        {mode === 'single' && generatedImages.length > 0 && (
                           <Button variant="outline" onClick={handleDownload} className="w-full h-12 border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors">
                             <Download className="mr-2 h-4 w-4" />
                             {t.app.download}
@@ -589,51 +715,87 @@ export default function Home() {
 
                   {/* Viewer Panel */}
                   <div className="flex flex-col gap-6" ref={resultsRef}>
-                    <div className="bg-card border rounded-2xl overflow-hidden shadow-2xl min-h-[300px] md:min-h-[500px] flex items-center justify-center relative ring-1 ring-border/50">
-                      {generatedImages.length === 0 ? (
-                        <div className="relative w-full h-full min-h-[300px] md:min-h-[600px] flex items-center justify-center bg-muted/10">
-                          <img
-                            src={originalImage}
-                            alt="Original"
-                            className="max-w-full max-h-[700px] h-auto w-auto object-contain drop-shadow-xl"
-                          />
-                          {!isGenerating && (
-                            <div className="absolute top-4 right-4 animate-in fade-in duration-300">
-                              <div className="bg-background/80 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-white/20 text-sm font-medium flex items-center gap-2">
-                                {t.app.originalPreview}
-                              </div>
+                    {mode === 'single' ? (
+                      <>
+                        <div className="bg-card border rounded-2xl overflow-hidden shadow-2xl min-h-[300px] md:min-h-[500px] flex items-center justify-center relative ring-1 ring-border/50">
+                          {generatedImages.length === 0 ? (
+                            <div className="relative w-full h-full min-h-[300px] md:min-h-[600px] flex items-center justify-center bg-muted/10">
+                              <img
+                                src={originalImage || ''}
+                                alt="Original"
+                                className="max-w-full max-h-[700px] h-auto w-auto object-contain drop-shadow-xl"
+                              />
+                              {!isGenerating && (
+                                <div className="absolute top-4 right-4 animate-in fade-in duration-300">
+                                  <div className="bg-background/80 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-white/20 text-sm font-medium flex items-center gap-2">
+                                    {t.app.originalPreview}
+                                  </div>
+                                </div>
+                              )}
+                              <LoadingOverlay isVisible={isGenerating} lang={lang} />
                             </div>
-                          )}
-                          <LoadingOverlay isVisible={isGenerating} lang={lang} />
-                        </div>
-                      ) : (
-                        <ComparisonViewer
-                          beforeImage={originalImage}
-                          afterImage={generatedImages[selectedImageIndex]}
-                          originalLabel={t.app.originalLabel}
-                        />
-                      )}
-                    </div>
-
-                    {/* Thumbnails */}
-                    {generatedImages.length > 1 && (
-                      <div className="grid grid-cols-4 gap-4 animate-in slide-in-from-bottom-4 duration-500 delay-100">
-                        {generatedImages.map((img, i) => (
-                          <div
-                            key={i}
-                            className={cn(
-                              "cursor-pointer rounded-xl overflow-hidden border-2 transition-all h-28 relative hover:scale-[1.03] hover:shadow-lg",
-                              selectedImageIndex === i ? "border-primary ring-4 ring-primary/10 shadow-xl scale-[1.03]" : "border-transparent opacity-60 hover:opacity-100 grayscale hover:grayscale-0"
-                            )}
-                            onClick={() => setSelectedImageIndex(i)}
-                          >
-                            <img
-                              src={img}
-                              alt={`Variation ${i + 1}`}
-                              className="w-full h-full object-cover"
+                          ) : (
+                            <ComparisonViewer
+                              beforeImage={originalImage || ''}
+                              afterImage={generatedImages[selectedImageIndex]}
+                              originalLabel={t.app.originalLabel}
                             />
+                          )}
+                        </div>
+
+                        {/* Thumbnails */}
+                        {generatedImages.length > 1 && (
+                          <div className="grid grid-cols-4 gap-4 animate-in slide-in-from-bottom-4 duration-500 delay-100">
+                            {generatedImages.map((img, i) => (
+                              <div
+                                key={i}
+                                className={cn(
+                                  "cursor-pointer rounded-xl overflow-hidden border-2 transition-all h-28 relative hover:scale-[1.03] hover:shadow-lg",
+                                  selectedImageIndex === i ? "border-primary ring-4 ring-primary/10 shadow-xl scale-[1.03]" : "border-transparent opacity-60 hover:opacity-100 grayscale hover:grayscale-0"
+                                )}
+                                onClick={() => setSelectedImageIndex(i)}
+                              >
+                                <img
+                                  src={img}
+                                  alt={`Variation ${i + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
+                      </>
+                    ) : (
+                      // Batch Results View
+                      <div className="space-y-8 min-h-[600px] relative">
+                        {batchResults.length === 0 ? (
+                          <div className="grid grid-cols-2 gap-4">
+                            {originalImages.map((img, idx) => (
+                              <div key={idx} className="bg-card border rounded-xl overflow-hidden relative shadow-sm h-64 flex items-center justify-center bg-muted/10">
+                                <img src={img} className="max-w-full max-h-full object-contain" />
+                                <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">Angle {idx + 1}</div>
+                              </div>
+                            ))}
+                            <LoadingOverlay isVisible={isGenerating} lang={lang} />
+                          </div>
+                        ) : (
+                          <div className="space-y-12">
+                            {batchResults.map((result, idx) => (
+                              <div key={idx} className="space-y-4">
+                                <h3 className="text-lg font-bold text-muted-foreground flex items-center gap-2">
+                                  <SingleImageIcon className="w-5 h-5" /> Angle {idx + 1}
+                                </h3>
+                                <div className="h-[400px] bg-card border rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/50">
+                                  <ComparisonViewer
+                                    beforeImage={result.original}
+                                    afterImage={result.generated[0]}
+                                    originalLabel={`Original (Angle ${idx + 1})`}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

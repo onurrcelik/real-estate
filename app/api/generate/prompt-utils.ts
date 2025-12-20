@@ -7,4 +7,4 @@ export const stylePrompts: Record<string, string> = {
     Contemporary: "Current, trendy, sophisticated, geometric shapes, bold accents, mixed textures, polished finishes, art-forward.",
 };
 
-export const negativePrompt = "low quality, blurry, distorted, watermark, bad composition, mutation, undefined objects, weird coloring, unrealistic, noisy, grainy, changing room shape, architectural changes, new angle, different perspective, new windows, structural modification, shifting walls";
+export const negativePrompt = "low quality, blurry, distorted, watermark, bad composition, mutation, undefined objects, weird coloring, unrealistic, noisy, grainy, changing room shape, architectural changes, new angle, different perspective, new windows, structural modification, shifting walls, renovation, remodeling, new cabinets, changing countertops, changing backsplash, changing floor tiles, construction";

@@ -73,9 +73,9 @@ export async function POST(req: NextRequest) {
         if (roomType === 'living_room') {
             specificPrompt = "IMPORTANT: If a media console or TV stand is visible, place a large modern flat-screen TV on it. Replace any painting or artwork above the unit with the TV.";
         } else if (roomType === 'bathroom') {
-            specificPrompt = "IMPORTANT: Strictly preserve existing wall and floor tiles. Do NOT change tile patterns, size, or material. Only enhance lighting and update movable decor like towels or mirrors.";
+            specificPrompt = "IMPORTANT: STRICTLY PRESERVE existing wall tiles, floor tiles, vanity cabinet, sink, tap, and toilet. Do NOT change tile patterns, size, or material. Do NOT change the vanity or sink. Only enhance lighting and update movable decor like towels, mirrors, or shower curtains.";
         } else if (roomType === 'kitchen') {
-            specificPrompt = "IMPORTANT: Preserve the exact layout of cabinets, sink, and stove. Do not move appliances or change the structural cabinetry. Focus on updating finishes, countertops, and backsplash only.";
+            specificPrompt = "IMPORTANT: STRICTLY PRESERVE the entire kitchen cabinetry, countertops, backsplash, sink, tap, stove, and oven. Do NOT change colors, materials, or styles of these permanent fixtures. ONLY add or update movable items like fruit bowls, appliances on counter, rugs, or lighting. The goal is VIRTUAL STAGING of decor, NOT RENOVATION.";
         } else if (roomType === 'bedroom') {
             specificPrompt = "IMPORTANT: Keep the bed in its original position. Focus on upgrading the bedding, headboard, nightstands, and rugs.";
         } else if (roomType === 'dining_room') {
