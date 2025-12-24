@@ -120,18 +120,24 @@ export async function POST(req: NextRequest) {
             }
 
             // 2. Call AI
-            // We use the same seed for all
+            // NOTE: Only use seed for subsequent angles - seed interferes with spatial_consistency
+            const falInput: any = {
+                prompt: prompt,
+                image_urls: [base64Image],
+                output_format: "jpeg",
+                image_size: "square_hd",
+                negative_prompt: negativePrompt,
+                num_images: numImagesPerAngle,
+                spatial_consistency: "on_structure_match" // Lock depth map for structure preservation
+            };
+
+            // Only add seed for subsequent angles (first angle matches single route exactly)
+            if (index > 0) {
+                falInput.seed = consistencySeed;
+            }
+
             const result: any = await fal.subscribe("fal-ai/nano-banana-pro/edit", {
-                input: {
-                    prompt: prompt,
-                    image_urls: [base64Image],
-                    output_format: "jpeg",
-                    image_size: "square_hd", // or pass param
-                    negative_prompt: negativePrompt,
-                    num_images: numImagesPerAngle,
-                    seed: consistencySeed, // SHARED SEED
-                    spatial_consistency: "on_structure_match" // Lock depth map for structure preservation
-                },
+                input: falInput,
                 logs: false,
             });
 
